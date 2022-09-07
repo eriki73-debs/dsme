@@ -36,7 +36,19 @@ build-stamp: configure-stamp
 # The rationale for /sbin and /lib/dsme: DSME needs to be available on bootup before networking starts.
 # Also see http://tldp.org/LDP/Linux-Filesystem-Hierarchy/html/sbin.html and
 # http://tldp.org/LDP/Linux-Filesystem-Hierarchy/html/lib.html
-	dh_auto_configure -- --disable-static --exec-prefix=""
+	dh_auto_configure -- \
+		--prefix=/usr \
+		--sysconfdir=/etc \
+		--sbindir=/usr/bin \
+		--disable-static \
+		--disable-upstart \
+		--enable-runlevel \
+		--enable-systemd \
+		--enable-pwrkeymonitor \
+		--disable-validatorlistener \
+		--enable-abootsettings \
+		--enable-usewheel \
+    	--disable-poweron-timer
 	dh_auto_build
 	dh_auto_test
 
@@ -60,7 +72,7 @@ clean:
 install:
 	dh_testdir
 	dh_testroot
-	dh_clean -k -s
+	dh_prep
 	dh_installdirs
 
 	# Add here commands to install the package into
@@ -74,7 +86,11 @@ ifneq (,$(findstring testcases,$(DEB_BUILD_OPTIONS)))
 	$(MAKE) tests_install DESTDIR=$(CURDIR)/debian/tmp
 endif
 
-	dh_install -s
+	dh_install -a
+
+
+	sed -e "s|@LIBDIR@|/usr/lib/$(DEB_HOST_MULTIARCH)|g" $(CURDIR)/debian/dsme.service.in > $(CURDIR)/debian/dsme.service
+	dh_installsystemd
 
 # Must not depend on anything. This is to be called by
 # binary-arch/binary-indep
@@ -92,11 +108,10 @@ binary-arch: build install
 	dh_fixperms
 	dh_makeshlibs --exclude=/lib/dsme/
 	dh_installdeb
-	dh_shlibdeps
+	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
-	aegis-deb-add -control debian/dsme/DEBIAN/control .. debian/dsme.aegis=_aegis
 # Build architecture independant packages using the common target.
 binary-indep: build install
 #	$(MAKE) -f debian/rules DH_OPTIONS=-i binary-common
